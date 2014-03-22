@@ -1,0 +1,2 @@
+add-fontconfig-dpi-support.diff
+enable-64bit-client.diff
