@@ -1,6 +1,6 @@
 #!/bin/bash
 
-BUILDNUMBER=b01
+BUILDNUMBER=b02
 
 if [ "$#" -ne 2 ] ; then
     echo "expected 2 arguments:"
