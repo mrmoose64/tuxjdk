@@ -199,3 +199,16 @@ Index: jdk8-tuxjdk/jdk/src/share/classes/com/sun/java/swing/plaf/gtk/PangoFonts.
              FontUIResource fuir = new FontUIResource(font);
              return FontUtilities.getCompositeFontUIResource(fuir);
          }
+Index: jdk8-tuxjdk/jdk/src/share/classes/javax/swing/plaf/nimbus/Defaults.template
+===================================================================
+--- jdk8-tuxjdk.orig/jdk/src/share/classes/javax/swing/plaf/nimbus/Defaults.template
++++ jdk8-tuxjdk/jdk/src/share/classes/javax/swing/plaf/nimbus/Defaults.template
+@@ -135,7 +135,7 @@ final class ${LAF_NAME}Defaults {
+         //regions and their states that this class will use for later lookup.
+         //Additional regions can be registered later by 3rd party components.
+         //These are simply the default registrations.
+-        defaultFont = FontUtilities.getFontConfigFUIR("sans", Font.PLAIN, 12);
++        defaultFont = FontUtilities.getFontConfigFUIR("sans", Font.PLAIN, UIManager.getDefaultFontSizeTuxjdkSpecific());
+         defaultStyle = new DefaultSynthStyle();
+         defaultStyle.setFont(defaultFont);
+ 
