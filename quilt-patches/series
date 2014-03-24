@@ -1,2 +1,3 @@
-add-fontconfig-dpi-support.diff
 enable-64bit-client.diff
+add-fontconfig-dpi-support.diff
+add-default-font-size-settings-hierarchy.diff

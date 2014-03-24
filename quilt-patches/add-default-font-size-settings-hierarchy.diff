@@ -1,0 +1,280 @@
+Index: jdk8-tuxjdk/jdk/src/share/classes/javax/swing/UIManager.java
+===================================================================
+--- jdk8-tuxjdk.orig/jdk/src/share/classes/javax/swing/UIManager.java
++++ jdk8-tuxjdk/jdk/src/share/classes/javax/swing/UIManager.java
+@@ -42,10 +42,12 @@ import javax.swing.border.Border;
+ 
+ import javax.swing.event.SwingPropertyChangeSupport;
+ import java.beans.PropertyChangeListener;
++import java.io.BufferedInputStream;
+ 
+ import java.io.Serializable;
+ import java.io.File;
+ import java.io.FileInputStream;
++import java.io.InputStream;
+ 
+ import java.util.ArrayList;
+ import java.util.Properties;
+@@ -190,6 +192,9 @@ public class UIManager implements Serial
+     {
+         Properties swingProps;
+         private UIDefaults[] tables = new UIDefaults[2];
++        
++        @Deprecated
++        int defaultFontSizeTuxjdkSpecific;
+ 
+         boolean initialized = false;
+         boolean focusPolicyInitialized = false;
+@@ -277,25 +282,6 @@ public class UIManager implements Serial
+     }
+ 
+     /**
+-     * The location of the <code>swing.properties</code> property file is
+-     * implementation-specific.
+-     * It is typically located in the <code>lib</code> subdirectory of the Java
+-     * installation directory. This method returns a bogus filename
+-     * if <code>java.home</code> isn't defined.
+-     */
+-    private static String makeSwingPropertiesFilename() {
+-        String sep = File.separator;
+-        // No need to wrap this in a doPrivileged as it's called from
+-        // a doPrivileged.
+-        String javaHome = System.getProperty("java.home");
+-        if (javaHome == null) {
+-            javaHome = "<java.home undefined>";
+-        }
+-        return javaHome + sep + "lib" + sep + "swing.properties";
+-    }
+-
+-
+-    /**
+      * Provides a little information about an installed
+      * <code>LookAndFeel</code> for the sake of configuring a menu or
+      * for initial application set up.
+@@ -1164,6 +1150,11 @@ public class UIManager implements Serial
+             return rv;
+         }
+     }
++    
++    @Deprecated
++    static public int getDefaultFontSizeTuxjdkSpecific() {
++        return getLAFState().defaultFontSizeTuxjdkSpecific;
++    }
+ 
+ 
+     /**
+@@ -1223,45 +1214,62 @@ public class UIManager implements Serial
+             return new Properties();
+         }
+         else {
+-            final Properties props = new Properties();
+-
+-            java.security.AccessController.doPrivileged(
+-                new java.security.PrivilegedAction<Object>() {
+-                public Object run() {
+-                    OSInfo.OSType osType = AccessController.doPrivileged(OSInfo.getOSTypeAction());
+-                    if (osType == OSInfo.OSType.MACOSX) {
+-                        props.put(defaultLAFKey, getSystemLookAndFeelClassName());
++            return java.security.AccessController.doPrivileged(
++                new java.security.PrivilegedAction<Properties>() {
++                public Properties run() {
++                    // if you're not on Linux - you should not apply this patch:
++                    Properties installationWide = null;
++                    Properties systemWide = null;
++                    Properties userWide = null;
++                    
++                    // just for backward compatibility:
++                    String sep = File.separator;
++                    String javaHome = System.getProperty("java.home");
++                    if (javaHome != null) {
++                        installationWide = readPropertiesFromFile(javaHome + "/lib/swing.properties", null);
+                     }
+-
+-                    try {
+-                        File file = new File(makeSwingPropertiesFilename());
+-
+-                        if (file.exists()) {
+-                            // InputStream has been buffered in Properties
+-                            // class
+-                            FileInputStream ins = new FileInputStream(file);
+-                            props.load(ins);
+-                            ins.close();
+-                        }
++                    // system-specific configuration in /etc:
++                    systemWide = readPropertiesFromFile("/etc/java/swing.properties", installationWide);
++                    
++                    // user-specific configuration in user home:
++                    String userHome = System.getProperty("user.home");
++                    if (userHome != null) {
++                        userWide = readPropertiesFromFile(userHome + "/.config/java/swing.properties", systemWide);
+                     }
+-                    catch (Exception e) {
+-                        // No such file, or file is otherwise non-readable.
++                    
++                    if (userWide == null) {
++                        return new Properties();
+                     }
+ 
+                     // Check whether any properties were overridden at the
+                     // command line.
+-                    checkProperty(props, defaultLAFKey);
+-                    checkProperty(props, auxiliaryLAFsKey);
+-                    checkProperty(props, multiplexingLAFKey);
+-                    checkProperty(props, installedLAFsKey);
+-                    checkProperty(props, disableMnemonicKey);
++                    checkProperty(userWide, defaultLAFKey);
++                    checkProperty(userWide, auxiliaryLAFsKey);
++                    checkProperty(userWide, multiplexingLAFKey);
++                    checkProperty(userWide, installedLAFsKey);
++                    checkProperty(userWide, disableMnemonicKey);
+                     // Don't care about return value.
+-                    return null;
++                    return userWide;
+                 }
+             });
+-            return props;
+         }
+     }
++    
++    private static Properties readPropertiesFromFile(String filePath, Properties defaults) {
++        File file = new File(filePath);
++        if (file.exists() && file.isFile() && file.canRead()) {
++            try (InputStream in = new BufferedInputStream(new FileInputStream(file))) {
++                Properties properties = defaults == null ? new Properties() : new Properties(defaults);
++                properties.load(in);
++                return properties;
++            } catch (Exception ignore) {
++                // ignore
++            }
++        }
++        // if we are sill here - there is no file,
++        // we will return defaults regardless if its null or not:
++        return defaults;
++    }
+ 
+     private static void checkProperty(Properties props, String key) {
+         // No need to do catch the SecurityException here, this runs
+@@ -1412,6 +1420,21 @@ public class UIManager implements Serial
+     }
+ 
+ 
++    private static void initializeFontDefaults(Properties swingProps) {
++        String fontSizeProperty = swingProps.getProperty("swing.defaultFontSize");
++        if (fontSizeProperty != null) {
++            try {
++                int value = Integer.parseInt(fontSizeProperty);
++                getLAFState().defaultFontSizeTuxjdkSpecific = value;
++                return;
++            } catch (Exception ignore) {
++            }
++        }
++        // if we are still here - something went wrong and we have to use default value:
++        getLAFState().defaultFontSizeTuxjdkSpecific = 9;
++    }
++
++
+     /*
+      * This method is called before any code that depends on the
+      * <code>AppContext</code> specific LAFState object runs.  When the AppContext
+@@ -1456,6 +1479,7 @@ public class UIManager implements Serial
+     private static void initialize() {
+         Properties swingProps = loadSwingProperties();
+         initializeSystemDefaults(swingProps);
++        initializeFontDefaults(swingProps);
+         initializeDefaultLAF(swingProps);
+         initializeAuxiliaryLAFs(swingProps);
+         initializeInstalledLAFs(swingProps);
+Index: jdk8-tuxjdk/jdk/src/share/classes/javax/swing/plaf/metal/DefaultMetalTheme.java
+===================================================================
+--- jdk8-tuxjdk.orig/jdk/src/share/classes/javax/swing/plaf/metal/DefaultMetalTheme.java
++++ jdk8-tuxjdk/jdk/src/share/classes/javax/swing/plaf/metal/DefaultMetalTheme.java
+@@ -90,30 +90,11 @@ import sun.swing.SwingUtilities2;
+  */
+ public class DefaultMetalTheme extends MetalTheme {
+     /**
+-     * Whether or not fonts should be plain.  This is only used if
+-     * the defaults property 'swing.boldMetal' == "false".
+-     */
+-    private static final boolean PLAIN_FONTS;
+-
+-    /**
+      * Names of the fonts to use.
+      */
+     private static final String[] fontNames = {
+         Font.DIALOG,Font.DIALOG,Font.DIALOG,Font.DIALOG,Font.DIALOG,Font.DIALOG
+     };
+-    /**
+-     * Styles for the fonts.  This is ignored if the defaults property
+-     * <code>swing.boldMetal</code> is false, or PLAIN_FONTS is true.
+-     */
+-    private static final int[] fontStyles = {
+-        Font.BOLD, Font.PLAIN, Font.PLAIN, Font.BOLD, Font.BOLD, Font.PLAIN
+-    };
+-    /**
+-     * Sizes for the fonts.
+-     */
+-    private static final int[] fontSizes = {
+-        12, 12, 12, 12, 12, 10
+-    };
+ 
+     // note the properties listed here can currently be used by people
+     // providing runtimes to hint what fonts are good.  For example the bold
+@@ -145,32 +126,20 @@ public class DefaultMetalTheme extends M
+      * Returns the ideal font size for the font identified by key.
+      */
+     static int getDefaultFontSize(int key) {
+-        return fontSizes[key];
++        int value = UIManager.getDefaultFontSizeTuxjdkSpecific();
++        if (key == SUB_TEXT_FONT) {
++            // doing precise operation and then cutting the tail:
++            double d = value * 0.9d;
++            value = (int) d;
++        }
++        return value;
+     }
+ 
+     /**
+      * Returns the ideal font style for the font identified by key.
+      */
+     static int getDefaultFontStyle(int key) {
+-        if (key != WINDOW_TITLE_FONT) {
+-            Object boldMetal = null;
+-            if (AppContext.getAppContext().get(
+-                    SwingUtilities2.LAF_STATE_KEY) != null) {
+-                // Only access the boldMetal key if a look and feel has
+-                // been loaded, otherwise we'll trigger loading the look
+-                // and feel.
+-                boldMetal = UIManager.get("swing.boldMetal");
+-            }
+-            if (boldMetal != null) {
+-                if (Boolean.FALSE.equals(boldMetal)) {
+-                    return Font.PLAIN;
+-                }
+-            }
+-            else if (PLAIN_FONTS) {
+-                return Font.PLAIN;
+-            }
+-        }
+-        return fontStyles[key];
++        return Font.PLAIN;
+     }
+ 
+     /**
+@@ -180,17 +149,6 @@ public class DefaultMetalTheme extends M
+         return defaultNames[key];
+     }
+ 
+-    static {
+-        Object boldProperty = java.security.AccessController.doPrivileged(
+-            new GetPropertyAction("swing.boldMetal"));
+-        if (boldProperty == null || !"false".equals(boldProperty)) {
+-            PLAIN_FONTS = false;
+-        }
+-        else {
+-            PLAIN_FONTS = true;
+-        }
+-    }
+-
+     private static final ColorUIResource primary1 = new ColorUIResource(
+                               102, 102, 153);
+     private static final ColorUIResource primary2 = new ColorUIResource(153,
