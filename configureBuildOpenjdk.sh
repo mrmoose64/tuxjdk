@@ -1,11 +1,10 @@
 #!/bin/bash
 
-BUILDNUMBER=b02
-
-if [ "$#" -ne 2 ] ; then
+if [ "$#" -ne 3 ] ; then
     echo "expected 2 arguments:"
     echo "* path to OpenJDK source folder"
     echo "* path to bootstrap JDK"
+    echo "* build number"
     exit 1;
 fi
 
@@ -14,7 +13,7 @@ unset JDK_HOME
 unset JRE_HOME
 unset _JAVA_OPTIONS
 
-COMMAND="$1/configure --with-boot-jdk=$2 --with-milestone=tuxjdk --with-build-number=$BUILDNUMBER --with-jvm-variants=client"
+COMMAND="$1/configure --with-boot-jdk=$2 --with-milestone=tuxjdk --with-build-number=$3 --with-jvm-variants=client"
 echo "running $COMMAND..."
 echo ""
 bash $COMMAND

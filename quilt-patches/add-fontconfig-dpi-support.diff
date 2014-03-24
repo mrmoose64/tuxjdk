@@ -27,7 +27,7 @@ Index: jdk8-tuxjdk/jdk/src/share/native/sun/font/freetypeScaler.c
  
  #include "fontscaler.h"
  
-@@ -48,6 +53,182 @@
+@@ -48,6 +53,201 @@
  #define  ROUND(x) ((int) (x+0.5))
  
  typedef struct {
@@ -35,10 +35,35 @@ Index: jdk8-tuxjdk/jdk/src/share/native/sun/font/freetypeScaler.c
 +    FT_Render_Mode ftRenderMode;
 +    int ftLoadFlags;
 +    FT_LcdFilter ftLcdFilter;
-+    double verticalDpi;
-+    double horizontalDpi;
++    FT_UInt verticalDpi;
++    FT_UInt horizontalDpi;
 +
 +} RenderingProperties;
++
++static int xorgVerticalDpi = 0;
++static int xorgHorizontalDpi = 0;
++
++static int resolution(int mm, int px) {
++    // basic formula is:
++    // 25.4 * h / hmm + 0.5
++    return (px * 254 + mm * 5) / (mm * 10);
++}
++
++static void setupXorgResolution() {
++    Display* display = XOpenDisplay(NULL); // TODO do we need a display name here?
++    // calculating horizontal resolution:
++    int wmm = DisplayWidthMM(display, 0);
++    int wpx = DisplayWidth(display, 0);
++    xorgHorizontalDpi = resolution(wmm, wpx);
++
++    // calculating vertical resolution:
++    int hmm = DisplayHeightMM(display, 0);
++    int hpx = DisplayHeight(display, 0);
++    xorgVerticalDpi = resolution(hmm, hpx);
++
++    // TODO do we need to close display here?
++    XCloseDisplay(display);
++}
 +
 +static FcPattern* matchedPattern(const FcChar8* family, double ptSize) {
 +    /*
@@ -172,45 +197,39 @@ Index: jdk8-tuxjdk/jdk/src/share/native/sun/font/freetypeScaler.c
 +    }
 +
 +    // DPI from fontconfig:
-+    double vdpi = 72;
-+    double hdpi = 72;
-+    if (FcPatternGetDouble(pattern, FC_DPI, 0, &vdpi) == FcResultMatch) {
-+        hdpi = vdpi;
-+    } else {
-+        // no DPI in fontconfig, reading from X:
-+        Display* display = XOpenDisplay(NULL); // TODO do we need a display name here?
-+        // calculating horizontal resolution:
-+        int wmm = DisplayWidthMM(display, 0);
-+        int wpx = DisplayWidth(display, 0);
-+        // basic formula is:
-+        // 25.4 * px / mm + 0.5
-+        hdpi = (wpx * 254 + wmm * 5) / (wmm * 10);
-+
-+        // calculating vertical resolution:
-+        int hmm = DisplayHeightMM(display, 0);
-+        int hpx = DisplayHeight(display, 0);
-+        // basic formula is:
-+        // 25.4 * px / mm + 0.5
-+        vdpi = (hpx * 254 + hmm * 5) / (hmm * 10);
-+
-+        // TODO do we need to close display here?
-+        XCloseDisplay(display);
++    double fcDpi = 72;
++    FcPatternGetDouble(pattern, FC_DPI, 0, &fcDpi);
++    
++    // now reading from X:
++    if (xorgVerticalDpi == 0) {
++        setupXorgResolution();
 +    }
-+
++    
++    FT_UInt fcDpiInt = fcDpi;
++    // Now, unfortunately we have reports from both X and fontconfig,
++    // but we have no way to determine if we got real value or defaults.
++    // We will try to guess:
++    // fontconfig default is 75dpi,
++    // Xorg default is probably either 72 or 96,
++    // and real world display dpi is somewhere beteween 96 and 300,
++    // so we will take highest reported value in hope it is closer to be true:
++    FT_UInt verticalDpi = xorgVerticalDpi > fcDpiInt ? xorgVerticalDpi : fcDpiInt;
++    FT_UInt horizontalDpi = xorgHorizontalDpi > fcDpiInt ? xorgHorizontalDpi : fcDpiInt;
++    
 +    FcPatternDestroy(pattern);
 +
 +    rp->ftRenderMode = ftRenderMode;
 +    rp->ftLoadFlags = ftLoadFalgs;
 +    rp->ftLcdFilter = ftLcdFilter;
-+    rp->verticalDpi = vdpi;
-+    rp->horizontalDpi = hdpi;
++    rp->verticalDpi = verticalDpi;
++    rp->horizontalDpi = horizontalDpi;
 +}
 +
 +typedef struct {
      /* Important note:
           JNI forbids sharing same env between different threads.
           We are safe, because pointer is overwritten every time we get into
-@@ -80,6 +261,7 @@ typedef struct FTScalerContext {
+@@ -80,6 +280,7 @@ typedef struct FTScalerContext {
      int        renderFlags;   /* configuration specific to particular engine */
      int        pathType;
      int        ptsz;          /* size in points */
@@ -218,7 +237,7 @@ Index: jdk8-tuxjdk/jdk/src/share/native/sun/font/freetypeScaler.c
  } FTScalerContext;
  
  #ifdef DEBUG
-@@ -412,13 +594,20 @@ static int setupFTContext(JNIEnv *env,
+@@ -412,13 +613,20 @@ static int setupFTContext(JNIEnv *env,
      scalerInfo->font2D = font2D;
  
      if (context != NULL) {
@@ -241,7 +260,7 @@ Index: jdk8-tuxjdk/jdk/src/share/native/sun/font/freetypeScaler.c
      }
  
      return errCode;
-@@ -704,13 +893,8 @@ Java_sun_font_FreetypeFontScaler_getGlyp
+@@ -704,13 +912,8 @@ Java_sun_font_FreetypeFontScaler_getGlyp
          JNIEnv *env, jobject scaler, jobject font2D,
          jlong pScalerContext, jlong pScaler, jint glyphCode) {
  
@@ -257,7 +276,7 @@ Index: jdk8-tuxjdk/jdk/src/share/native/sun/font/freetypeScaler.c
      FTScalerContext* context =
          (FTScalerContext*) jlong_to_ptr(pScalerContext);
      FTScalerInfo *scalerInfo =
-@@ -726,53 +910,44 @@ Java_sun_font_FreetypeFontScaler_getGlyp
+@@ -726,53 +929,44 @@ Java_sun_font_FreetypeFontScaler_getGlyp
          return ptr_to_jlong(getNullGlyphImage());
      }
  
@@ -335,7 +354,7 @@ Index: jdk8-tuxjdk/jdk/src/share/native/sun/font/freetypeScaler.c
  
      width  = (UInt16) ftglyph->bitmap.width;
      height = (UInt16) ftglyph->bitmap.rows;
-@@ -783,6 +958,7 @@ Java_sun_font_FreetypeFontScaler_getGlyp
+@@ -783,6 +977,7 @@ Java_sun_font_FreetypeFontScaler_getGlyp
          glyphInfo = getNullGlyphImage();
          return ptr_to_jlong(glyphInfo);
      }
