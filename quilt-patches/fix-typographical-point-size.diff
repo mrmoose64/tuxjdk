@@ -57,15 +57,18 @@ Index: jdk8-tuxjdk/jdk/src/share/native/sun/font/freetypeScaler.c
      double dmat[4], ptsz;
      FTScalerContext *context =
              (FTScalerContext*) calloc(1, sizeof(FTScalerContext));
-@@ -536,6 +537,7 @@ Java_sun_font_FreetypeFontScaler_createS
+@@ -536,6 +537,10 @@ Java_sun_font_FreetypeFontScaler_createS
          //text can not be smaller than 1 point
          ptsz = 1.0;
      }
-+    context->pxsz = (int)(ptsz * ptToPxScale);
++    
++    double pxsz = ptsz * ptToPxScale + 0.5;
++    
++    context->pxsz = (int)pxsz;
      context->ptsz = (int)(ptsz * 64);
      context->transform.xx =  FloatToFTFixed((float)dmat[0]/ptsz);
      context->transform.yx = -FloatToFTFixed((float)dmat[1]/ptsz);
-@@ -570,7 +572,7 @@ static int setupFTContext(JNIEnv *env,
+@@ -570,7 +575,7 @@ static int setupFTContext(JNIEnv *env,
  
          FT_Set_Transform(scalerInfo->face, &context->transform, NULL);
  
