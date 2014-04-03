@@ -1,10 +1,10 @@
 #!/bin/bash
 
 if [ "$#" -ne 3 ] ; then
-    echo "expected 2 arguments:"
-    echo "* path to OpenJDK source folder"
-    echo "* path to bootstrap JDK"
-    echo "* build number"
+    echo "expected 3 arguments:"
+    echo " * path to OpenJDK source folder"
+    echo " * path to bootstrap JDK"
+    echo " * build number"
     exit 1;
 fi
 
