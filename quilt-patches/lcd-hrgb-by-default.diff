@@ -2,25 +2,40 @@ Index: jdk8-tuxjdk/jdk/src/share/classes/java/awt/font/FontRenderContext.java
 ===================================================================
 --- jdk8-tuxjdk.orig/jdk/src/share/classes/java/awt/font/FontRenderContext.java
 +++ jdk8-tuxjdk/jdk/src/share/classes/java/awt/font/FontRenderContext.java
-@@ -75,7 +75,7 @@ public class FontRenderContext {
+@@ -75,8 +75,8 @@ public class FontRenderContext {
       *
       */
      protected FontRenderContext() {
 -        aaHintValue = VALUE_TEXT_ANTIALIAS_DEFAULT;
+-        fmHintValue = VALUE_FRACTIONALMETRICS_DEFAULT;
 +        aaHintValue = VALUE_TEXT_ANTIALIAS_LCD_HRGB;
-         fmHintValue = VALUE_FRACTIONALMETRICS_DEFAULT;
++        fmHintValue = VALUE_FRACTIONALMETRICS_ON;
          defaulting = true;
      }
+ 
 Index: jdk8-tuxjdk/jdk/src/share/classes/sun/java2d/SunGraphics2D.java
 ===================================================================
 --- jdk8-tuxjdk.orig/jdk/src/share/classes/sun/java2d/SunGraphics2D.java
 +++ jdk8-tuxjdk/jdk/src/share/classes/sun/java2d/SunGraphics2D.java
-@@ -269,7 +269,7 @@ public final class SunGraphics2D
+@@ -269,8 +269,8 @@ public final class SunGraphics2D
  
          renderHint = SunHints.INTVAL_RENDER_DEFAULT;
          antialiasHint = SunHints.INTVAL_ANTIALIAS_OFF;
 -        textAntialiasHint = SunHints.INTVAL_TEXT_ANTIALIAS_DEFAULT;
+-        fractionalMetricsHint = SunHints.INTVAL_FRACTIONALMETRICS_OFF;
 +        textAntialiasHint = SunHints.INTVAL_TEXT_ANTIALIAS_LCD_HRGB;
-         fractionalMetricsHint = SunHints.INTVAL_FRACTIONALMETRICS_OFF;
++        fractionalMetricsHint = SunHints.INTVAL_FRACTIONALMETRICS_ON;
          lcdTextContrast = lcdTextContrastDefaultValue;
          interpolationHint = -1;
+         strokeHint = SunHints.INTVAL_STROKE_DEFAULT;
+@@ -1337,8 +1337,8 @@ public final class SunGraphics2D
+         this.hints = null;
+         renderHint = SunHints.INTVAL_RENDER_DEFAULT;
+         antialiasHint = SunHints.INTVAL_ANTIALIAS_OFF;
+-        textAntialiasHint = SunHints.INTVAL_TEXT_ANTIALIAS_DEFAULT;
+-        fractionalMetricsHint = SunHints.INTVAL_FRACTIONALMETRICS_OFF;
++        textAntialiasHint = SunHints.INTVAL_TEXT_ANTIALIAS_LCD_HRGB;
++        fractionalMetricsHint = SunHints.INTVAL_FRACTIONALMETRICS_ON;
+         lcdTextContrast = lcdTextContrastDefaultValue;
+         interpolationHint = -1;
+         interpolationType = AffineTransformOp.TYPE_NEAREST_NEIGHBOR;
