@@ -1,0 +1,76 @@
+Index: jdk8-tuxjdk/jdk/src/share/classes/sun/font/FreetypeFontScaler.java
+===================================================================
+--- jdk8-tuxjdk.orig/jdk/src/share/classes/sun/font/FreetypeFontScaler.java
++++ jdk8-tuxjdk/jdk/src/share/classes/sun/font/FreetypeFontScaler.java
+@@ -25,6 +25,8 @@
+ 
+ package sun.font;
+ 
++import java.awt.GraphicsEnvironment;
++import java.awt.geom.AffineTransform;
+ import java.awt.geom.GeneralPath;
+ import java.awt.geom.Point2D;
+ import java.awt.geom.Rectangle2D;
+@@ -214,8 +216,14 @@ class FreetypeFontScaler extends FontSca
+             int aa, int fm, float boldness, float italic,
+             boolean disableHinting) {
+         if (nativeScaler != 0L) {
++            double ptToPxScale = 1.0d;
++            GraphicsEnvironment graphicsEnvironment = GraphicsEnvironment.getLocalGraphicsEnvironment();
++            if (!graphicsEnvironment.isHeadlessInstance()) {
++                AffineTransform normalizingTransform = graphicsEnvironment.getDefaultScreenDevice().getDefaultConfiguration().getNormalizingTransform();
++                ptToPxScale = normalizingTransform.getScaleY();
++            }
+             return createScalerContextNative(nativeScaler, matrix,
+-                                             aa, fm, boldness, italic);
++                                             aa, fm, boldness, italic, ptToPxScale);
+         }
+         return NullFontScaler.getNullScalerContext();
+     }
+@@ -254,7 +262,7 @@ class FreetypeFontScaler extends FontSca
+     private native long getUnitsPerEMNative(long pScaler);
+ 
+     native long createScalerContextNative(long pScaler, double[] matrix,
+-            int aa, int fm, float boldness, float italic);
++            int aa, int fm, float boldness, float italic, double ptToPxScale);
+ 
+     /* Freetype scaler context does not contain any pointers that
+        has to be invalidated if native scaler is bad */
+Index: jdk8-tuxjdk/jdk/src/share/native/sun/font/freetypeScaler.c
+===================================================================
+--- jdk8-tuxjdk.orig/jdk/src/share/native/sun/font/freetypeScaler.c
++++ jdk8-tuxjdk/jdk/src/share/native/sun/font/freetypeScaler.c
+@@ -92,6 +92,7 @@ typedef struct FTScalerContext {
+     int        renderFlags;   /* configuration specific to particular engine */
+     int        pathType;
+     int        ptsz;          /* size in points */
++    int        pxsz;          /* size in pixels */
+     RenderingProperties* renderingProperties;
+ } FTScalerContext;
+ 
+@@ -519,7 +520,7 @@ static double euclidianDistance(double a
+ JNIEXPORT jlong JNICALL
+ Java_sun_font_FreetypeFontScaler_createScalerContextNative(
+         JNIEnv *env, jobject scaler, jlong pScaler, jdoubleArray matrix,
+-        jint aa, jint fm, jfloat boldness, jfloat italic) {
++        jint aa, jint fm, jfloat boldness, jfloat italic, jdouble ptToPxScale) {
+     double dmat[4], ptsz;
+     FTScalerContext *context =
+             (FTScalerContext*) calloc(1, sizeof(FTScalerContext));
+@@ -536,6 +537,7 @@ Java_sun_font_FreetypeFontScaler_createS
+         //text can not be smaller than 1 point
+         ptsz = 1.0;
+     }
++    context->pxsz = (int)(ptsz * ptToPxScale);
+     context->ptsz = (int)(ptsz * 64);
+     context->transform.xx =  FloatToFTFixed((float)dmat[0]/ptsz);
+     context->transform.yx = -FloatToFTFixed((float)dmat[1]/ptsz);
+@@ -570,7 +572,7 @@ static int setupFTContext(JNIEnv *env,
+ 
+         FT_Set_Transform(scalerInfo->face, &context->transform, NULL);
+ 
+-        errCode = FT_Set_Char_Size(scalerInfo->face, 0, context->ptsz, 72, 72);
++        errCode = FT_Set_Pixel_Sizes(scalerInfo->face, 0, context->pxsz);
+         if (errCode == 0) {
+             errCode = FT_Activate_Size(scalerInfo->face->size);
+         }
