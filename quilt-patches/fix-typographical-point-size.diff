@@ -40,15 +40,16 @@ Index: jdk8-tuxjdk/jdk/src/share/native/sun/font/freetypeScaler.c
 ===================================================================
 --- jdk8-tuxjdk.orig/jdk/src/share/native/sun/font/freetypeScaler.c
 +++ jdk8-tuxjdk/jdk/src/share/native/sun/font/freetypeScaler.c
-@@ -92,6 +92,7 @@ typedef struct FTScalerContext {
+@@ -92,6 +92,8 @@ typedef struct FTScalerContext {
      int        renderFlags;   /* configuration specific to particular engine */
      int        pathType;
      int        ptsz;          /* size in points */
 +    int        pxsz;          /* size in pixels */
++    int        dpi;           /* size in pixels */
      RenderingProperties* renderingProperties;
  } FTScalerContext;
  
-@@ -519,7 +520,7 @@ static double euclidianDistance(double a
+@@ -519,7 +521,7 @@ static double euclidianDistance(double a
  JNIEXPORT jlong JNICALL
  Java_sun_font_FreetypeFontScaler_createScalerContextNative(
          JNIEnv *env, jobject scaler, jlong pScaler, jdoubleArray matrix,
@@ -57,23 +58,26 @@ Index: jdk8-tuxjdk/jdk/src/share/native/sun/font/freetypeScaler.c
      double dmat[4], ptsz;
      FTScalerContext *context =
              (FTScalerContext*) calloc(1, sizeof(FTScalerContext));
-@@ -536,6 +537,10 @@ Java_sun_font_FreetypeFontScaler_createS
+@@ -536,6 +538,12 @@ Java_sun_font_FreetypeFontScaler_createS
          //text can not be smaller than 1 point
          ptsz = 1.0;
      }
-+    
++
 +    double pxsz = ptsz * ptToPxScale + 0.5;
-+    
++    double dpi = 72.0 * ptToPxScale;
++
 +    context->pxsz = (int)pxsz;
++    context->dpi = (int)dpi;
      context->ptsz = (int)(ptsz * 64);
      context->transform.xx =  FloatToFTFixed((float)dmat[0]/ptsz);
      context->transform.yx = -FloatToFTFixed((float)dmat[1]/ptsz);
-@@ -570,7 +575,7 @@ static int setupFTContext(JNIEnv *env,
+@@ -570,7 +578,8 @@ static int setupFTContext(JNIEnv *env,
  
          FT_Set_Transform(scalerInfo->face, &context->transform, NULL);
  
 -        errCode = FT_Set_Char_Size(scalerInfo->face, 0, context->ptsz, 72, 72);
 +        errCode = FT_Set_Pixel_Sizes(scalerInfo->face, 0, context->pxsz);
++        //errCode = FT_Set_Char_Size(scalerInfo->face, 0, context->ptsz, 0, context->dpi);
          if (errCode == 0) {
              errCode = FT_Activate_Size(scalerInfo->face->size);
          }
