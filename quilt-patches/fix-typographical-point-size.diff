@@ -58,12 +58,15 @@ Index: jdk8-tuxjdk/jdk/src/share/native/sun/font/freetypeScaler.c
      double dmat[4], ptsz;
      FTScalerContext *context =
              (FTScalerContext*) calloc(1, sizeof(FTScalerContext));
-@@ -536,6 +538,12 @@ Java_sun_font_FreetypeFontScaler_createS
+@@ -536,6 +538,15 @@ Java_sun_font_FreetypeFontScaler_createS
          //text can not be smaller than 1 point
          ptsz = 1.0;
      }
 +
++    // scale can be used to calculate both DPI and pixel size,
++    // with pixel size we have to guess, looks like calculated value has to be rounded up:
 +    double pxsz = ptsz * ptToPxScale + 0.5;
++    // because we operate with quite high numbers - no need to round up DPI:
 +    double dpi = 72.0 * ptToPxScale;
 +
 +    context->pxsz = (int)pxsz;
@@ -71,13 +74,18 @@ Index: jdk8-tuxjdk/jdk/src/share/native/sun/font/freetypeScaler.c
      context->ptsz = (int)(ptsz * 64);
      context->transform.xx =  FloatToFTFixed((float)dmat[0]/ptsz);
      context->transform.yx = -FloatToFTFixed((float)dmat[1]/ptsz);
-@@ -570,7 +578,8 @@ static int setupFTContext(JNIEnv *env,
+@@ -570,7 +581,13 @@ static int setupFTContext(JNIEnv *env,
  
          FT_Set_Transform(scalerInfo->face, &context->transform, NULL);
  
 -        errCode = FT_Set_Char_Size(scalerInfo->face, 0, context->ptsz, 72, 72);
-+        errCode = FT_Set_Pixel_Sizes(scalerInfo->face, 0, context->pxsz);
-+        //errCode = FT_Set_Char_Size(scalerInfo->face, 0, context->ptsz, 0, context->dpi);
++        // we could use calculated pixel size for this,
++        // but who knows if we guessed with rounding up,
++        // so we will leave it up to freetype2 to decide the pixel size
++        // based on DPI value:
++        //errCode = FT_Set_Pixel_Sizes(scalerInfo->face, 0, context->pxsz);
++        errCode = FT_Set_Char_Size(scalerInfo->face, 0, context->ptsz, 0, context->dpi);
++
          if (errCode == 0) {
              errCode = FT_Activate_Size(scalerInfo->face->size);
          }
