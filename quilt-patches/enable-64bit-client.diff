@@ -1,8 +1,8 @@
-Index: jdk8-q1/common/autoconf/jdk-options.m4
+Index: jdk8-minimal/common/autoconf/jdk-options.m4
 ===================================================================
---- jdk8-q1.orig/common/autoconf/jdk-options.m4
-+++ jdk8-q1/common/autoconf/jdk-options.m4
-@@ -88,11 +88,6 @@ AC_DEFUN_ONCE([JDKOPT_SETUP_JVM_VARIANTS
+--- jdk8-minimal.orig/common/autoconf/jdk-options.m4
++++ jdk8-minimal/common/autoconf/jdk-options.m4
+@@ -88,21 +88,11 @@ AC_DEFUN_ONCE([JDKOPT_SETUP_JVM_VARIANTS
    JVM_VARIANT_ZERO=`$ECHO "$JVM_VARIANTS" | $SED -e '/,zero,/!s/.*/false/g' -e '/,zero,/s/.*/true/g'`
    JVM_VARIANT_ZEROSHARK=`$ECHO "$JVM_VARIANTS" | $SED -e '/,zeroshark,/!s/.*/false/g' -e '/,zeroshark,/s/.*/true/g'`
  
@@ -14,10 +14,20 @@ Index: jdk8-q1/common/autoconf/jdk-options.m4
    if test "x$JVM_VARIANT_KERNEL" = xtrue; then
      if test "x$OPENJDK_TARGET_CPU_BITS" = x64; then
        AC_MSG_ERROR([You cannot build a kernel JVM for a 64-bit machine.])
-Index: jdk8-q1/hotspot/make/Makefile
+     fi
+   fi
+-  if test "x$JVM_VARIANT_MINIMAL1" = xtrue; then
+-    if test "x$OPENJDK_TARGET_CPU_BITS" = x64; then
+-      AC_MSG_ERROR([You cannot build a minimal JVM for a 64-bit machine.])
+-    fi
+-  fi
+ 
+   # Replace the commas with AND for use in the build directory name.
+   ANDED_JVM_VARIANTS=`$ECHO "$JVM_VARIANTS" | $SED -e 's/^,//' -e 's/,$//' -e 's/,/AND/'`
+Index: jdk8-minimal/hotspot/make/Makefile
 ===================================================================
---- jdk8-q1.orig/hotspot/make/Makefile
-+++ jdk8-q1/hotspot/make/Makefile
+--- jdk8-minimal.orig/hotspot/make/Makefile
++++ jdk8-minimal/hotspot/make/Makefile
 @@ -202,13 +202,9 @@ ifeq ($(OSNAME),windows)
  	@$(ECHO) "No compiler1 ($(VM_TARGET)) for ARCH_DATA_MODEL=$(ARCH_DATA_MODEL)"
    endif
@@ -32,7 +42,25 @@ Index: jdk8-q1/hotspot/make/Makefile
  endif
  
  # Build compiler2 (server) rule, different for platforms
-@@ -569,11 +565,7 @@ test_product test_optimized test_fastdeb
+@@ -243,7 +239,6 @@ generic_buildshark: $(HOTSPOT_SCRIPT)
+ generic_buildminimal1: $(HOTSPOT_SCRIPT)
+ ifeq ($(JVM_VARIANT_MINIMAL1),true)
+ 	$(MKDIR) -p $(OUTPUTDIR)
+-  ifeq ($(ARCH_DATA_MODEL), 32)
+     ifeq ($(OSNAME),windows)
+ 	$(ECHO) "No ($(VM_TARGET)) for $(OSNAME) ARCH_DATA_MODEL=$(ARCH_DATA_MODEL)" ;
+     else
+@@ -254,9 +249,6 @@ ifeq ($(JVM_VARIANT_MINIMAL1),true)
+ 	$(MAKE) -f $(ABS_OS_MAKEFILE) $(MAKE_ARGS) $(VM_TARGET) ;
+       endif
+     endif
+-  else
+-	    @$(ECHO) "No ($(VM_TARGET)) for $(OSNAME) ARCH_DATA_MODEL=$(ARCH_DATA_MODEL)"
+-  endif
+ else
+ 	@$(ECHO) "Error: trying to build a minimal target but JVM_VARIANT_MINIMAL1 is not true."
+ endif
+@@ -569,11 +561,7 @@ test_product test_optimized test_fastdeb
  
  # C1 test targets
  test_product1 test_optimized1 test_fastdebug1 test_debug1:
@@ -44,10 +72,10 @@ Index: jdk8-q1/hotspot/make/Makefile
  
  # Zero test targets
  test_productzero test_optimizedzero test_fastdebugzero test_debugzero:
-Index: jdk8-q1/hotspot/make/linux/makefiles/defs.make
+Index: jdk8-minimal/hotspot/make/linux/makefiles/defs.make
 ===================================================================
---- jdk8-q1.orig/hotspot/make/linux/makefiles/defs.make
-+++ jdk8-q1/hotspot/make/linux/makefiles/defs.make
+--- jdk8-minimal.orig/hotspot/make/linux/makefiles/defs.make
++++ jdk8-minimal/hotspot/make/linux/makefiles/defs.make
 @@ -122,14 +122,9 @@ endif
  
  # On 32 bit linux we build server and client, on 64 bit just server.
@@ -63,10 +91,10 @@ Index: jdk8-q1/hotspot/make/linux/makefiles/defs.make
  endif
  
  # determine if HotSpot is being built in JDK6 or earlier version
-Index: jdk8-q1/jdk/make/CopyFiles.gmk
+Index: jdk8-minimal/jdk/make/CopyFiles.gmk
 ===================================================================
---- jdk8-q1.orig/jdk/make/CopyFiles.gmk
-+++ jdk8-q1/jdk/make/CopyFiles.gmk
+--- jdk8-minimal.orig/jdk/make/CopyFiles.gmk
++++ jdk8-minimal/jdk/make/CopyFiles.gmk
 @@ -292,57 +292,33 @@ JVMCFG := $(JVMCFG_DIR)/jvm.cfg
  
  # To do: should this also support -zeroshark?
