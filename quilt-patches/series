@@ -1,6 +1,5 @@
-enable-64bit-client.diff
+backport-fix-make40-build.diff
+tune-default-gc.diff
 add-fontconfig-support.diff
 fix-typographical-point-size.diff
-add-swing-properties-configuration-hierarchy.diff
-sane-and-configurable-swing-laf-fonts.diff
 lcd-hrgb-by-default.diff

@@ -1,17 +1,23 @@
-Index: jdk8-tuxjdk/jdk/src/share/classes/sun/font/FreetypeFontScaler.java
+Index: jdk8u-tuxjdk/jdk/src/share/classes/sun/font/FreetypeFontScaler.java
 ===================================================================
---- jdk8-tuxjdk.orig/jdk/src/share/classes/sun/font/FreetypeFontScaler.java
-+++ jdk8-tuxjdk/jdk/src/share/classes/sun/font/FreetypeFontScaler.java
-@@ -25,6 +25,8 @@
+--- jdk8u-tuxjdk.orig/jdk/src/share/classes/sun/font/FreetypeFontScaler.java
++++ jdk8u-tuxjdk/jdk/src/share/classes/sun/font/FreetypeFontScaler.java
+@@ -24,12 +24,12 @@
+  */
  
  package sun.font;
- 
-+import java.awt.GraphicsEnvironment;
+-
 +import java.awt.geom.AffineTransform;
++import java.awt.GraphicsEnvironment;
  import java.awt.geom.GeneralPath;
  import java.awt.geom.Point2D;
  import java.awt.geom.Rectangle2D;
-@@ -214,8 +216,14 @@ class FreetypeFontScaler extends FontSca
+ import java.lang.ref.WeakReference;
+-
+ /* This is Freetype based implementation of FontScaler.
+  *
+  * Note that in case of runtime error it is expected that
+@@ -214,8 +214,14 @@ class FreetypeFontScaler extends FontSca
              int aa, int fm, float boldness, float italic,
              boolean disableHinting) {
          if (nativeScaler != 0L) {
@@ -27,7 +33,7 @@ Index: jdk8-tuxjdk/jdk/src/share/classes/sun/font/FreetypeFontScaler.java
          }
          return NullFontScaler.getNullScalerContext();
      }
-@@ -254,7 +262,7 @@ class FreetypeFontScaler extends FontSca
+@@ -254,7 +260,7 @@ class FreetypeFontScaler extends FontSca
      private native long getUnitsPerEMNative(long pScaler);
  
      native long createScalerContextNative(long pScaler, double[] matrix,
@@ -36,20 +42,20 @@ Index: jdk8-tuxjdk/jdk/src/share/classes/sun/font/FreetypeFontScaler.java
  
      /* Freetype scaler context does not contain any pointers that
         has to be invalidated if native scaler is bad */
-Index: jdk8-tuxjdk/jdk/src/share/native/sun/font/freetypeScaler.c
+Index: jdk8u-tuxjdk/jdk/src/share/native/sun/font/freetypeScaler.c
 ===================================================================
---- jdk8-tuxjdk.orig/jdk/src/share/native/sun/font/freetypeScaler.c
-+++ jdk8-tuxjdk/jdk/src/share/native/sun/font/freetypeScaler.c
+--- jdk8u-tuxjdk.orig/jdk/src/share/native/sun/font/freetypeScaler.c
++++ jdk8u-tuxjdk/jdk/src/share/native/sun/font/freetypeScaler.c
 @@ -92,6 +92,8 @@ typedef struct FTScalerContext {
      int        renderFlags;   /* configuration specific to particular engine */
      int        pathType;
      int        ptsz;          /* size in points */
 +    int        pxsz;          /* size in pixels */
-+    int        dpi;           /* size in pixels */
++    int        dpi;           /* screen dpi */
      RenderingProperties* renderingProperties;
  } FTScalerContext;
  
-@@ -519,7 +521,7 @@ static double euclidianDistance(double a
+@@ -502,7 +504,7 @@ static double euclidianDistance(double a
  JNIEXPORT jlong JNICALL
  Java_sun_font_FreetypeFontScaler_createScalerContextNative(
          JNIEnv *env, jobject scaler, jlong pScaler, jdoubleArray matrix,
@@ -58,7 +64,7 @@ Index: jdk8-tuxjdk/jdk/src/share/native/sun/font/freetypeScaler.c
      double dmat[4], ptsz;
      FTScalerContext *context =
              (FTScalerContext*) calloc(1, sizeof(FTScalerContext));
-@@ -536,6 +538,15 @@ Java_sun_font_FreetypeFontScaler_createS
+@@ -519,6 +521,15 @@ Java_sun_font_FreetypeFontScaler_createS
          //text can not be smaller than 1 point
          ptsz = 1.0;
      }
@@ -74,7 +80,7 @@ Index: jdk8-tuxjdk/jdk/src/share/native/sun/font/freetypeScaler.c
      context->ptsz = (int)(ptsz * 64);
      context->transform.xx =  FloatToFTFixed((float)dmat[0]/ptsz);
      context->transform.yx = -FloatToFTFixed((float)dmat[1]/ptsz);
-@@ -570,7 +581,13 @@ static int setupFTContext(JNIEnv *env,
+@@ -553,7 +564,12 @@ static int setupFTContext(JNIEnv *env,
  
          FT_Set_Transform(scalerInfo->face, &context->transform, NULL);
  
@@ -85,7 +91,6 @@ Index: jdk8-tuxjdk/jdk/src/share/native/sun/font/freetypeScaler.c
 +        // based on DPI value:
 +        //errCode = FT_Set_Pixel_Sizes(scalerInfo->face, 0, context->pxsz);
 +        errCode = FT_Set_Char_Size(scalerInfo->face, 0, context->ptsz, 0, context->dpi);
-+
+ 
          if (errCode == 0) {
              errCode = FT_Activate_Size(scalerInfo->face->size);
-         }
